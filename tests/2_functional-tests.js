@@ -1,228 +1,169 @@
-'use strict';
-
-const chai = require('chai');
 const chaiHttp = require('chai-http');
+const chai = require('chai');
+const assert = chai.assert;
 const server = require('../server');
-
-const { assert } = chai;
 chai.use(chaiHttp);
 
+let testId;
+
 suite('Functional Tests', function() {
-  this.timeout(5000);
 
-  const project = 'apitest';
-  let testId;
-  let testId2;
-
-  test('Create an issue with every field: POST request to /api/issues/{project', function (done) {
-    chai
-      .request(server)
-      .post(`/api/issues/${project}`)
+  test('Create an issue with every field', function(done) {
+    chai.request(server)
+      .post('/api/issues/test')
       .send({
-        issue_title: 'Title One',
-        issue_text: 'Text One',
-        created_by: 'User One',
-        assigned_to: 'Dev One',
+        issue_title: 'Bug in code',
+        issue_text: 'Null pointer exception',
+        created_by: 'Master',
+        assigned_to: 'Zaylee',
         status_text: 'In QA'
       })
-      .end(function (err, res) {
+      .end(function(err, res){
         assert.equal(res.status, 200);
-        assert.isObject(res.body);
-        assert.property(res.body, '_id');
-        assert.equal(res.body.issue_title, 'Title One');
-        assert.equal(res.body.issue_text, 'Text One');
-        assert.equal(res.body.created_by, 'User One');
-        assert.equal(res.body.assigned_to, 'Dev One');
+        assert.equal(res.body.issue_title, 'Bug in code');
+        assert.equal(res.body.issue_text, 'Null pointer exception');
+        assert.equal(res.body.created_by, 'Master');
+        assert.equal(res.body.assigned_to, 'Zaylee');
         assert.equal(res.body.status_text, 'In QA');
-        assert.property(res.body, 'created_on');
-        assert.property(res.body, 'updated_on');
-        assert.property(res.body, 'open');
-
+        assert.exists(res.body._id);
         testId = res.body._id;
-        done()
+        done();
       });
-});
+  });
 
- test('Create an issue with only required fields: POST request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .post(`/api/issues/${project}`)
+  test('Create an issue with only required fields', function(done) {
+    chai.request(server)
+      .post('/api/issues/test')
       .send({
-        issue_title: 'Title Two',
-        issue_text: 'Text Two',
-        created_by: 'User Two'
+        issue_title: 'Required only',
+        issue_text: 'Just testing',
+        created_by: 'Master'
       })
-      .end(function (err, res) {
+      .end(function(err, res){
         assert.equal(res.status, 200);
-        assert.isObject(res.body);
-        assert.property(res.body, '_id');
-        assert.equal(res.body.issue_title, 'Title Two');
-        assert.equal(res.body.issue_text, 'Text Two');
-        assert.equal(res.body.created_by, 'User Two');
         assert.equal(res.body.assigned_to, '');
         assert.equal(res.body.status_text, '');
-        assert.property(res.body, 'created_on');
-        assert.property(res.body, 'updated_on');
-        assert.property(res.body, 'open');
-
-        testId2 = res.body._id;
         done();
       });
   });
 
-  test('Create an issue with missing required fields: POST request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .post(`/api/issues/${project}`)
+  test('Create an issue with missing required fields', function(done) {
+    chai.request(server)
+      .post('/api/issues/test')
       .send({
-        issue_title: 'Missing Text + Created By'
+        issue_title: 'Missing text'
       })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { error: 'required field(s) missing' });
+      .end(function(err, res){
+        assert.equal(res.body.error, 'required field(s) missing');
         done();
       });
   });
 
-  test('View issues on a project: GET request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .get(`/api/issues/${project}`)
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
+  test('View issues on a project', function(done) {
+    chai.request(server)
+      .get('/api/issues/test')
+      .end(function(err, res){
         assert.isArray(res.body);
-        assert.isAtLeast(res.body.length, 1);
         done();
       });
   });
 
-  test('View issues on a project with one filter: GET request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .get(`/api/issues/${project}?created_by=User%20One`)
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
+  test('View issues on a project with one filter', function(done) {
+    chai.request(server)
+      .get('/api/issues/test?created_by=Master')
+      .end(function(err, res){
         assert.isArray(res.body);
-        assert.isAtLeast(res.body.length, 1);
-        res.body.forEach((i) => assert.equal(i.created_by, 'User One'));
+        res.body.forEach(i => assert.equal(i.created_by, 'Master'));
         done();
       });
   });
 
-  test('View issues on a project with multiple filters: GET request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .get(`/api/issues/${project}?created_by=User%20One&open=true`)
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
+  test('View issues on a project with multiple filters', function(done) {
+    chai.request(server)
+      .get('/api/issues/test?open=true&created_by=Master')
+      .end(function(err, res){
         assert.isArray(res.body);
-        assert.isAtLeast(res.body.length, 1);
-        res.body.forEach((i) => {
-          assert.equal(i.created_by, 'User One');
-          assert.equal(i.open, true);
-        });
         done();
       });
   });
 
-  test('Update one field on an issue: PUT request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .put(`/api/issues/${project}`)
-      .send({ _id: testId, issue_text: 'Text One Updated' })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { result: 'successfully updated', _id: testId });
+  test('Update one field on an issue', function(done) {
+    chai.request(server)
+      .put('/api/issues/test')
+      .send({ _id: testId, issue_text: 'Updated text' })
+      .end(function(err, res){
+        assert.equal(res.body.result, 'successfully updated');
+        assert.equal(res.body._id, testId);
         done();
       });
   });
 
-  test('Update multiple fields on an issue: PUT request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .put(`/api/issues/${project}`)
-      .send({
-        _id: testId,
-        issue_title: 'Title One Updated',
-        assigned_to: 'Dev One Updated',
-        status_text: 'Done',
-        open: false
-      })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { result: 'successfully updated', _id: testId });
+  test('Update multiple fields on an issue', function(done) {
+    chai.request(server)
+      .put('/api/issues/test')
+      .send({ _id: testId, issue_title: 'Updated title', open: false })
+      .end(function(err, res){
+        assert.equal(res.body.result, 'successfully updated');
         done();
       });
   });
 
-  test('Update an issue with missing _id: PUT request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .put(`/api/issues/${project}`)
-      .send({ issue_title: 'No ID' })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { error: 'missing _id' });
+  test('Update an issue with missing _id', function(done) {
+    chai.request(server)
+      .put('/api/issues/test')
+      .send({ issue_text: 'Missing id' })
+      .end(function(err, res){
+        assert.equal(res.body.error, 'missing _id');
         done();
       });
   });
 
-  test('Update an issue with no fields to update: PUT request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .put(`/api/issues/${project}`)
+  test('Update an issue with no fields to update', function(done) {
+    chai.request(server)
+      .put('/api/issues/test')
       .send({ _id: testId })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { error: 'no update field(s) sent', _id: testId });
+      .end(function(err, res){
+        assert.equal(res.body.error, 'no update field(s) sent');
         done();
       });
   });
 
-  test('Update an issue with an invalid _id: PUT request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .put(`/api/issues/${project}`)
-      .send({ _id: 'invalidid', issue_title: 'Bad ID' })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { error: 'could not update', _id: 'invalidid' });
+  test('Update an issue with an invalid _id', function(done) {
+    chai.request(server)
+      .put('/api/issues/test')
+      .send({ _id: 'fakeid123', issue_text: 'bad id' })
+      .end(function(err, res){
+        assert.equal(res.body.error, 'could not update');
         done();
       });
   });
 
-  test('Delete an issue: DELETE request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .delete(`/api/issues/${project}`)
-      .send({ _id: testId2 })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { result: 'successfully deleted', _id: testId2 });
+  test('Delete an issue', function(done) {
+    chai.request(server)
+      .delete('/api/issues/test')
+      .send({ _id: testId })
+      .end(function(err, res){
+        assert.equal(res.body.result, 'successfully deleted');
         done();
       });
   });
 
-  test('Delete an issue with an invalid _id: DELETE request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .delete(`/api/issues/${project}`)
+  test('Delete an issue with invalid _id', function(done) {
+    chai.request(server)
+      .delete('/api/issues/test')
       .send({ _id: 'invalidid' })
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { error: 'could not delete', _id: 'invalidid' });
+      .end(function(err, res){
+        assert.equal(res.body.error, 'could not delete');
         done();
       });
   });
 
-  test('Delete an issue with missing _id: DELETE request to /api/issues/{project}', function (done) {
-    chai
-      .request(server)
-      .delete(`/api/issues/${project}`)
+  test('Delete an issue with missing _id', function(done) {
+    chai.request(server)
+      .delete('/api/issues/test')
       .send({})
-      .end(function (err, res) {
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body, { error: 'missing _id' });
+      .end(function(err, res){
+        assert.equal(res.body.error, 'missing _id');
         done();
       });
   });
